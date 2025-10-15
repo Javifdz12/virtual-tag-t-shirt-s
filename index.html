@@ -21,18 +21,16 @@
   <!-- PDF.js desde jsDelivr -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script>
-    const PDF_URL = "s.pdf"; // <-- cambia esto por TU PDF
+    const PDF_URL = "s.pdf"; // tu archivo
 
     const pagesEl = document.getElementById("pages");
     const statusEl = document.getElementById("status");
     const setStatus = (t, err=false)=>{ statusEl.textContent=t; statusEl.className = err ? "error" : ""; };
 
-    // Si PDF.js no cargó, informa y termina
     if (!window.pdfjsLib) {
-      setStatus("Error: no se pudo cargar PDF.js (bloqueado o sin conexión).", true);
+      setStatus("Error: no se pudo cargar PDF.js.", true);
     } else {
       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-
       const canvasByPage = new Map();
       let pdfDoc = null;
 
@@ -89,9 +87,6 @@
         }catch(err){
           console.error(err);
           setStatus(`No se pudo cargar el PDF: ${err.message}.`, true);
-          const p=document.createElement("p");
-          p.innerHTML = `Comprueba que <code>${PDF_URL}</code> está en la MISMA carpeta que este index.html y que el nombre (mayúsculas/minúsculas) es correcto.`;
-          pagesEl.appendChild(p);
         }
       })();
     }
