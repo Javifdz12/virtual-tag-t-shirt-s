@@ -1,38 +1,169 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>PDF</title>
-  <style>
-    /* Cambia el color del fondo aquí: negro (#000) o blanco (#fff) */
-    :root { --bg: #000; }
-
-    html, body { height:100%; margin:0; background:var(--bg); }
-    /* Usa unidades dinámicas para móvil (evita barras de dirección comiéndose altura) */
-    .wrap { min-height: 100dvh; }
-    object, iframe, embed {
-      width:100%;
-      height:100dvh;
-      border:0;
-      display:block;
-      background:var(--bg);
-    }
-
-    /* Si quieres fondo blanco, descomenta:
-    :root { --bg: #fff; }
-    */
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PDF scroll continuo</title>
+<style>
+  :root { --bg: #fff; --page-gap: 16px; }
+  html, body { margin:0; background:var(--bg); color:#111; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+  header { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid #eee; padding: 8px 12px; font-size:14px; }
+  #status { opacity:.8 }
+  #pages { max-width: 1000px; margin: 10px auto 40px; padding: 0 10px; }
+  .page {
+    display:block; margin: var(--page-gap) auto; padding: 0;
+    background:#fff; border:1px solid #e5e7eb; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.08);
+    overflow:hidden;
+  }
+  .page canvas { width:100%; height:auto; display:block; background:#fff; }
+  .ph {
+    width:100%; aspect-ratio: 1/1.4142; /* A-series ratio aproximado para placeholder */
+    background: #f6f7f9;
+  }
+  .num {
+    text-align:center; font-size:12px; color:#666; padding:6px 0 10px;
+  }
+  /* Ajustes para pantallas estrechas */
+  @media (max-width: 900px){
+    #pages { max-width: 100%; }
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <!-- Cambia mi-archivo.pdf por tu PDF -->
-    <object data="ilovepdf_merged.pdf" type="application/pdf">
-      <!-- Fallback por si el navegador no incrusta PDFs: muestra enlace directo -->
-      <p style="color:#ccc; font-family:system-ui; text-align:center; padding:1rem;">
-        <a href="ilovepdf_merged.pdf" style="color:#fff; text-decoration:underline;">Abrir/Descargar PDF</a>
-      </p>
-    </object>
-  </div>
+  <header><span id="status">Cargando…</span></header>
+  <main id="pages" aria-live="polite"></main>
+
+  <!-- PDF.js (lib + worker) desde CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" integrity="sha512-Y+Z0Qw2XfWqLwQ/kK0+qX1v6e0n+3b0kD2xQF2oEDx8w3cFv7eQqG9A1U2v9XzKc3O1Vn5V2g9p5b1Gq4k4wQQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    // 👉 Cambia esto por tu archivo PDF (misma carpeta o URL absoluta):
+    const PDF_URL = "ilovepdf_merged.pdf";
+
+    // Configuración del worker de PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+    const pagesContainer = document.getElementById('pages');
+    const statusEl = document.getElementById('status');
+
+    let pdfDoc = null;
+    let observers = [];
+    let pageCanvases = new Map(); // pageNum -> {canvas, renderedScale}
+
+    function setStatus(msg) { statusEl.textContent = msg; }
+
+    // Crea el contenedor/placeholder para cada página
+    function createPageShell(pageNum) {
+      const section = document.createElement('section');
+      section.className = 'page';
+      section.setAttribute('data-page', pageNum);
+
+      // Canvas real (se llena al renderizar)
+      const canvas = document.createElement('canvas');
+      // Placeholder mientras no se renderiza
+      const ph = document.createElement('div');
+      ph.className = 'ph';
+
+      section.appendChild(canvas);
+      const num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = `Página ${pageNum}`;
+      section.appendChild(num);
+
+      pagesContainer.appendChild(section);
+      pageCanvases.set(pageNum, { canvas, renderedScale: 0 });
+    }
+
+    // Calcula escala para que la página ocupe el ancho disponible, con nitidez retina
+    function computeScale(viewportWidth) {
+      const containerWidth = Math.min(
+        pagesContainer.clientWidth || window.innerWidth,
+        1000 // ancho máximo visual
+      );
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      return (containerWidth / viewportWidth) * dpr;
+    }
+
+    async function renderPage(pageNum) {
+      const { canvas } = pageCanvases.get(pageNum);
+      const page = await pdfDoc.getPage(pageNum);
+
+      // Viewport inicial a escala 1 para obtener dimensiones base
+      const vp1 = page.getViewport({ scale: 1 });
+      const scale = computeScale(vp1.width);
+      // Evita re-render si ya está renderizado a escala similar (±5%)
+      const prev = pageCanvases.get(pageNum).renderedScale || 0;
+      if (prev && Math.abs(prev - scale) / scale < 0.05) return;
+
+      const viewport = page.getViewport({ scale });
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.style.width = Math.floor(viewport.width / (window.devicePixelRatio || 1)) + 'px';
+      canvas.style.height = Math.floor(viewport.height / (window.devicePixelRatio || 1)) + 'px';
+
+      // Fondo blanco para evitar “página negra” en dark mode
+      ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      pageCanvases.get(pageNum).renderedScale = scale;
+    }
+
+    function setupLazyRendering(numPages) {
+      // Observador que renderiza al entrar en viewport
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            const pageNum = Number(e.target.getAttribute('data-page'));
+            renderPage(pageNum);
+          }
+        });
+      }, { root: null, rootMargin: '500px 0px', threshold: 0.01 });
+
+      // Observar todas las secciones
+      const sections = pagesContainer.querySelectorAll('.page');
+      sections.forEach(sec => io.observe(sec));
+      observers.push(io);
+
+      // Re-render en cambios de tamaño (debounce)
+      let t;
+      window.addEventListener('resize', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          for (let i=1; i<=numPages; i++) renderPage(i);
+        }, 200);
+      });
+    }
+
+    async function init() {
+      try {
+        setStatus('Cargando PDF…');
+        const loadingTask = pdfjsLib.getDocument(PDF_URL);
+        pdfDoc = await loadingTask.promise;
+
+        setStatus(`Páginas: ${pdfDoc.numPages}. Preparando…`);
+        // Crea shells
+        for (let i = 1; i <= pdfDoc.numPages; i++) createPageShell(i);
+
+        setupLazyRendering(pdfDoc.numPages);
+        setStatus('Listo. Desliza para leer.');
+      } catch (err) {
+        console.error(err);
+        setStatus('No se pudo cargar el PDF. Como alternativa, ábrelo directamente: ' + PDF_URL);
+        // Enlace de respaldo
+        const p = document.createElement('p');
+        p.style.textAlign = 'center';
+        p.innerHTML = `<a href="${PDF_URL}">Abrir/descargar PDF</a>`;
+        pagesContainer.appendChild(p);
+      }
+    }
+
+    init();
+  </script>
 </body>
 </html>
