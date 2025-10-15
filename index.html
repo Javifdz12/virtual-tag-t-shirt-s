@@ -1,98 +1,28 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>PDF scroll continuo</title>
-<style>
-  :root { --bg:#fff; --gap:16px; }
-  html,body { margin:0; background:var(--bg); color:#111; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-  #status{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid #eee; padding:8px 12px; font-size:14px }
-  #pages{ max-width:1000px; margin:12px auto 48px; padding:0 12px; }
-  .page{ margin:var(--gap) auto; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.06); overflow:hidden; }
-  .page canvas{ width:100%; height:auto; display:block; background:#fff; }
-  .error{ color:#b00020 }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Etiqueta</title>
+  <style>
+    /* Fondo blanco y scroll vertical */
+    html, body { margin:0; background:#fff; color:#111; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    main { max-width: 1000px; margin: 0 auto; padding: 16px 12px 48px; }
+    .page {
+      background:#fff; border:1px solid #e5e7eb; border-radius:8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.06);
+      overflow:hidden; margin: 16px 0;
+    }
+    .page img {
+      display:block; width:100%; height:auto; background:#fff;
+    }
+  </style>
 </head>
 <body>
-  <div id="status">Cargando…</div>
-  <main id="pages" aria-live="polite"></main>
-
-  <!-- PDF.js LEGACY (mejor compatibilidad con Safari/iOS) -->
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js" crossorigin="anonymous"></script>
-  <script>
-    const PDF_URL = "s.pdf"; // tu archivo al lado de index.html
-
-    const pagesEl = document.getElementById("pages");
-    const statusEl = document.getElementById("status");
-    const setStatus = (t, err=false)=>{ statusEl.textContent=t; statusEl.className = err ? "error" : ""; };
-
-    if (!window.pdfjsLib) {
-      setStatus("Error: no se pudo cargar PDF.js.", true);
-    } else {
-      // Worker LEGACY a juego con el script de arriba
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
-
-      const canvasByPage = new Map();
-      let pdfDoc = null;
-
-      async function fetchPDF(url){
-        const res = await fetch(url, { cache: "no-store" });
-        if(!res.ok) throw new Error(`HTTP ${res.status} al cargar ${url}`);
-        return await res.arrayBuffer();
-      }
-      function pageShell(n){
-        const sec=document.createElement("section"); sec.className="page"; sec.dataset.page=n;
-        const c=document.createElement("canvas"); sec.appendChild(c); pagesEl.appendChild(sec);
-        canvasByPage.set(n,{canvas:c, scale:0});
-      }
-      function scaleFor(baseWidth){
-        const w = Math.min(pagesEl.clientWidth || window.innerWidth, 1000);
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
-        return (w / baseWidth) * dpr;
-      }
-      async function renderPage(n){
-        const {canvas, scale:prev} = canvasByPage.get(n);
-        const page = await pdfDoc.getPage(n);
-        const vp1 = page.getViewport({scale:1});
-        const scale = scaleFor(vp1.width);
-        if (prev && Math.abs(prev-scale)/scale < .06) return;
-        const vp = page.getViewport({scale});
-        const ctx = canvas.getContext("2d");
-        canvas.width = Math.floor(vp.width);
-        canvas.height= Math.floor(vp.height);
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
-        canvas.style.width  = Math.floor(vp.width / dpr) + "px";
-        canvas.style.height = Math.floor(vp.height / dpr) + "px";
-        ctx.save(); ctx.fillStyle="#fff"; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.restore();
-        await page.render({canvasContext:ctx, viewport:vp}).promise;
-        canvasByPage.set(n,{canvas, scale});
-      }
-      function lazySetup(count){
-        const io = new IntersectionObserver((es)=>{
-          es.forEach(e=>{ if(e.isIntersecting) renderPage(+e.target.dataset.page); });
-        }, {root:null, rootMargin:"600px 0px", threshold:.01});
-        document.querySelectorAll(".page").forEach(p=>io.observe(p));
-        window.addEventListener("resize", ()=>{ for(let i=1;i<=count;i++) renderPage(i); });
-      }
-
-      (async function init(){
-        try{
-          setStatus("Descargando PDF…");
-          const data = await fetchPDF(PDF_URL);
-          setStatus("Leyendo PDF…");
-          pdfDoc = await pdfjsLib.getDocument({data}).promise;
-          setStatus(`Páginas: ${pdfDoc.numPages}. Desliza para leer.`);
-          for(let i=1;i<=pdfDoc.numPages;i++) pageShell(i);
-          lazySetup(pdfDoc.numPages);
-          renderPage(1); if(pdfDoc.numPages>1) renderPage(2);
-        }catch(err){
-          console.error(err);
-          setStatus(`No se pudo cargar el PDF: ${err.message}.`, true);
-        }
-      })();
-    }
-  </script>
+  <main>
+    <!-- Cambia los nombres a los tuyos -->
+    <figure class="page"><img src="p1.jpg" alt="Página 1" loading="eager"></figure>
+    <figure class="page"><img src="p2.jpg" alt="Página 2" loading="lazy"></figure>
+  </main>
 </body>
 </html>
