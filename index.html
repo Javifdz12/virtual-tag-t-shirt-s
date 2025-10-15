@@ -2,44 +2,37 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>PDF – Desktop/Mobile</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PDF</title>
   <style>
-    html,body { height:100%; margin:0; }
-    #wrap { position:fixed; inset:0; }
-    iframe { width:100%; height:100%; border:0; display:block; }
-    /* Solo estilos mínimos; el cambio de vista lo hace JS con el ancho */
+    /* Cambia el color del fondo aquí: negro (#000) o blanco (#fff) */
+    :root { --bg: #000; }
+
+    html, body { height:100%; margin:0; background:var(--bg); }
+    /* Usa unidades dinámicas para móvil (evita barras de dirección comiéndose altura) */
+    .wrap { min-height: 100dvh; }
+    object, iframe, embed {
+      width:100%;
+      height:100dvh;
+      border:0;
+      display:block;
+      background:var(--bg);
+    }
+
+    /* Si quieres fondo blanco, descomenta:
+    :root { --bg: #fff; }
+    */
   </style>
 </head>
 <body>
-  <div id="wrap">
-    <iframe id="pdfFrame" title="PDF"></iframe>
+  <div class="wrap">
+    <!-- Cambia mi-archivo.pdf por tu PDF -->
+    <object data="ilovepdf_merged.pdf" type="application/pdf">
+      <!-- Fallback por si el navegador no incrusta PDFs: muestra enlace directo -->
+      <p style="color:#ccc; font-family:system-ui; text-align:center; padding:1rem;">
+        <a href="ilovepdf_merged.pdf" style="color:#fff; text-decoration:underline;">Abrir/Descargar PDF</a>
+      </p>
+    </object>
   </div>
-
-  <script>
-    // 👉 Pon aquí tu PDF (misma carpeta o URL absoluta)
-    const PDF_URL = "ilovepdf_merged.pdf";
-
-    // Visor de PDF.js desde CDN (incrustado en la MISMA página)
-    const PDFJS_VIEWER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/viewer.html";
-
-    const frame = document.getElementById("pdfFrame");
-
-    function setSrcForViewport() {
-      const isMobile = window.matchMedia("(max-width: 900px)").matches;
-
-      // Desktop: PDF nativo del navegador
-      // Móvil: visor PDF.js (mejor experiencia)
-      const desiredSrc = isMobile
-        ? `${PDFJS_VIEWER}?file=${encodeURIComponent(new URL(PDF_URL, location.href))}#zoom=page-width`
-        : `${PDF_URL}#zoom=page-width`;
-
-      if (frame.src !== desiredSrc) frame.src = desiredSrc;
-    }
-
-    // Inicializa y reacciona a cambios de tamaño/orientación
-    setSrcForViewport();
-    window.addEventListener("resize", setSrcForViewport);
-  </script>
 </body>
 </html>
