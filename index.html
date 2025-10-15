@@ -3,66 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Ver PDF</title>
+  <title>PDF – Desktop/Mobile</title>
   <style>
-    :root { color-scheme: light dark; }
     html,body { height:100%; margin:0; }
-    .viewer { position:fixed; inset:0; display:flex; flex-direction:column; }
-    .toolbar {
-      display:none; gap:.75rem; align-items:center; justify-content:space-between;
-      padding:.5rem .75rem; border:0; background:rgba(0,0,0,.05);
-      -webkit-backdrop-filter:saturate(120%) blur(6px); backdrop-filter:saturate(120%) blur(6px);
-    }
-    .toolbar a, .toolbar button {
-      font: inherit; border:1px solid rgba(0,0,0,.2); padding:.5rem .75rem; border-radius:.75rem;
-      background:rgba(255,255,255,.7); text-decoration:none; color:inherit;
-    }
-    .frame { flex:1 1 auto; border:0; width:100%; height:100%; }
-    /* En móvil mostramos la toolbar (botón "Abrir en el visor del sistema") */
-    @media (max-width: 900px){
-      .toolbar { display:flex; }
-    }
+    #wrap { position:fixed; inset:0; }
+    iframe { width:100%; height:100%; border:0; display:block; }
+    /* Solo estilos mínimos; el cambio de vista lo hace JS con el ancho */
   </style>
 </head>
 <body>
-  <div class="viewer">
-    <div class="toolbar">
-      <div>PDF</div>
-      <a id="openNative" href="#" target="_blank" rel="noopener">Abrir con el visor del móvil</a>
-    </div>
-    <iframe id="frame" class="frame" title="PDF"></iframe>
+  <div id="wrap">
+    <iframe id="pdfFrame" title="PDF"></iframe>
   </div>
 
   <script>
-    // 👉 Pon aquí tu PDF (ruta relativa o URL absoluta):
-    const PDF_URL = "ilovepdf_merged.pdf.pdf";
+    // 👉 Pon aquí tu PDF (misma carpeta o URL absoluta)
+    const PDF_URL = "ilovepdf_merged.pdf";
 
-    // CDN del visor de PDF.js (estable y público)
+    // Visor de PDF.js desde CDN (incrustado en la MISMA página)
     const PDFJS_VIEWER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/web/viewer.html";
 
-    // Si la pantalla es estrecha (móvil/tablet), usamos el visor de PDF.js.
-    const isNarrow = window.matchMedia("(max-width: 900px)").matches;
+    const frame = document.getElementById("pdfFrame");
 
-    // Construye URL del visor con el PDF de destino
-    const pdfParam = encodeURIComponent(
-      new URL(PDF_URL, window.location.href).toString()
-    );
-    const viewerUrl = `${PDFJS_VIEWER}?file=${pdfParam}#zoom=page-width`;
+    function setSrcForViewport() {
+      const isMobile = window.matchMedia("(max-width: 900px)").matches;
 
-    // En desktop: embebemos el PDF directamente (rápido).
-    // En móvil: usamos el visor de PDF.js
-    const frame = document.getElementById("frame");
-    frame.src = isNarrow ? viewerUrl : `${PDF_URL}#zoom=page-width`;
+      // Desktop: PDF nativo del navegador
+      // Móvil: visor PDF.js (mejor experiencia)
+      const desiredSrc = isMobile
+        ? `${PDFJS_VIEWER}?file=${encodeURIComponent(new URL(PDF_URL, location.href))}#zoom=page-width`
+        : `${PDF_URL}#zoom=page-width`;
 
-    // Botón "Abrir con el visor del móvil"
-    document.getElementById("openNative").href = PDF_URL;
+      if (frame.src !== desiredSrc) frame.src = desiredSrc;
+    }
 
-    // Si el usuario rota la pantalla, podemos revaluar (opcional)
-    window.addEventListener("resize", () => {
-      const narrowNow = window.matchMedia("(max-width: 900px)").matches;
-      const desired = narrowNow ? viewerUrl : `${PDF_URL}#zoom=page-width`;
-      if (frame.src !== desired) frame.src = desired;
-    });
+    // Inicializa y reacciona a cambios de tamaño/orientación
+    setSrcForViewport();
+    window.addEventListener("resize", setSrcForViewport);
   </script>
 </body>
 </html>
