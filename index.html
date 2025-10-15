@@ -18,10 +18,10 @@
   <div id="status">Cargando…</div>
   <main id="pages" aria-live="polite"></main>
 
-  <!-- PDF.js desde jsDelivr -->
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <!-- PDF.js LEGACY (mejor compatibilidad con Safari/iOS) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.min.js" crossorigin="anonymous"></script>
   <script>
-    const PDF_URL = "s.pdf"; // tu archivo
+    const PDF_URL = "s.pdf"; // tu archivo al lado de index.html
 
     const pagesEl = document.getElementById("pages");
     const statusEl = document.getElementById("status");
@@ -30,7 +30,10 @@
     if (!window.pdfjsLib) {
       setStatus("Error: no se pudo cargar PDF.js.", true);
     } else {
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      // Worker LEGACY a juego con el script de arriba
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/legacy/build/pdf.worker.min.js";
+
       const canvasByPage = new Map();
       let pdfDoc = null;
 
